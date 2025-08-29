@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Reloader</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 12px; min-width: 260px; }
+      .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+      label { flex: 1; }
+      input[type="number"] { width: 90px; }
+      .actions { display: flex; gap: 8px; margin-top: 12px; }
+      .status { margin-top: 8px; font-size: 12px; opacity: 0.8; }
+      small { opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <h3>Auto Reloader</h3>
+
+    <div class="row">
+      <label for="seconds">Interval (seconds)</label>
+      <input id="seconds" type="number" min="1" step="1" value="60" />
+    </div>
+
+    <div class="row">
+      <label for="jitter">Jitter (± %)</label>
+      <input id="jitter" type="number" min="0" max="100" step="1" value="0" />
+    </div>
+
+    <div class="row">
+      <label for="enabled">Enabled for this tab</label>
+      <input id="enabled" type="checkbox" />
+    </div>
+
+    <div class="row">
+      <label for="autoDisable">Auto-disable on URL change</label>
+      <input id="autoDisable" type="checkbox" checked />
+    </div>
+    <small>When the URL changes, reloading will turn off but your settings stay saved.</small>
+
+    <div class="actions">
+      <button id="apply">Apply</button>
+      <button id="disable">Disable</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

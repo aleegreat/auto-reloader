@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Reloader",
+  "version": "1.0.0",
+  "description": "Reload the current page every X seconds with optional ± random jitter.",
+  "permissions": ["storage", "tabs", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Auto Reloader",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
