@@ -8,6 +8,9 @@ if (window.__AUTO_RELOADER_ACTIVE__) {
   let countdownInterval = null;
   let lastApplied = null; // {enabled, seconds, jitterPct, autoDisableOnUrlChange, lastUrl}
   let myTabId = null;
+  let isPaused = false;
+  let inactivityTimer = null;
+  let lastInteractionTime = Date.now();
 
   let currentHref = location.href;
 
@@ -15,7 +18,8 @@ if (window.__AUTO_RELOADER_ACTIVE__) {
   function clearTimerAndBadge() {
     if (currentTimer) { clearTimeout(currentTimer); currentTimer = null; }
     if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-    if (myTabId != null) {
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+    if (myTabId != null && !isPaused) {
       chrome.runtime.sendMessage({ type: "setBadge", tabId: myTabId, text: "", title: "" });
     }
   }
@@ -52,7 +56,34 @@ if (window.__AUTO_RELOADER_ACTIVE__) {
     countdownInterval = setInterval(tick, 1000);
   }
 
+  function handleUserInteraction() {
+    lastInteractionTime = Date.now();
+    if (!isPaused) {
+      isPaused = true;
+      clearTimerAndBadge();
+      if (myTabId != null) {
+        chrome.runtime.sendMessage({
+          type: "setBadge",
+          tabId: myTabId,
+          text: "⏸",
+          title: "Paused - will resume after 2 minutes of inactivity"
+        });
+      }
+    }
+    
+    // Reset inactivity timer
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      isPaused = false;
+      if (lastApplied?.enabled) {
+        scheduleReload(lastApplied.seconds, lastApplied.jitterPct);
+      }
+    }, 2 * 60 * 1000); // 2 minutes
+  }
+
   function scheduleReload(seconds, jitterPct) {
+    if (isPaused) return;
+    
     const delaySec = computeDelaySeconds(seconds, jitterPct);
 
     if (currentTimer) clearTimeout(currentTimer);
@@ -132,6 +163,9 @@ if (window.__AUTO_RELOADER_ACTIVE__) {
     }
   }
 
+  // Set up user interaction listeners
+  window.addEventListener("keydown", handleUserInteraction);
+  window.addEventListener("mousedown", handleUserInteraction);
   window.addEventListener("popstate", handleUrlMaybeChanged);
   window.addEventListener("hashchange", handleUrlMaybeChanged);
 
