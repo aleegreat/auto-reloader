@@ -63,12 +63,18 @@ if (window.__AUTO_RELOADER_ACTIVE__ &&
     const base = Math.max(1, Math.floor(Number(seconds) || 300));
     const min = base * (1 - pct);
     const max = base * (1 + pct);
-    return Math.max(1, Math.round(min + Math.random() * (max - min)));
+    // Clamp to setTimeout's 32-bit limit (~24.8 days); larger delays fire immediately.
+    return Math.max(1, Math.min(2147483, Math.round(min + Math.random() * (max - min))));
   }
 
   function startCountdown(delaySec) {
     let remaining = delaySec;
-    const format = (n) => (n > 9999 ? "∞" : String(n));
+    // README format: 59s, 2m5s, 1h0m7s
+    const format = (n) => {
+      if (n > 9999) return "∞";
+      const h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), s = n % 60;
+      return h > 0 ? `${h}h${m}m${s}s` : m > 0 ? `${m}m${s}s` : `${s}s`;
+    };
 
     const tick = () => {
       setBadge(format(remaining), `Reload in ${remaining}s`);
@@ -188,6 +194,8 @@ if (window.__AUTO_RELOADER_ACTIVE__ &&
     }
 
     if (settings.enabled) {
+      ensureAttached();
+      startWatchdog();
       // Ensure lastUrl stored matches current page, but do it silently to avoid reset loop
       if (settings.lastUrl !== location.href) {
         const merged = { ...settings, lastUrl: location.href };
@@ -226,6 +234,7 @@ if (window.__AUTO_RELOADER_ACTIVE__ &&
   }
 
   function handleUrlMaybeChanged() {
+    if (retired) return;
     const newHref = location.href;
     const oldHref = currentHref;
     if (newHref === oldHref) return;
@@ -280,26 +289,18 @@ if (window.__AUTO_RELOADER_ACTIVE__ &&
     if (watchdog) { clearInterval(watchdog); watchdog = null; }
   });
 
-  // Set up user interaction listeners
-  window.addEventListener("keydown", handleUserInteraction);
-  window.addEventListener("mousedown", handleUserInteraction);
-  window.addEventListener("popstate", handleUrlMaybeChanged);
-  window.addEventListener("hashchange", handleUrlMaybeChanged);
-
-  // Patch history to catch pushState/replaceState
-  {
-    const origPush = history.pushState;
-    history.pushState = function (...args) {
-      const ret = origPush.apply(this, args);
-      handleUrlMaybeChanged();
-      return ret;
-    };
-    const origReplace = history.replaceState;
-    history.replaceState = function (...args) {
-      const ret = origReplace.apply(this, args);
-      handleUrlMaybeChanged();
-      return ret;
-    };
+  // ---------- Listeners (registered lazily, only once reloading matters) ----------
+  // Patches happen in the MAIN world (content-main.js): the isolated world
+  // cannot see page-side pushState/replaceState calls, but DOM events cross.
+  let attached = false;
+  function ensureAttached() {
+    if (attached) return;
+    attached = true;
+    window.addEventListener("keydown", handleUserInteraction);
+    window.addEventListener("mousedown", handleUserInteraction);
+    window.addEventListener("popstate", handleUrlMaybeChanged);
+    window.addEventListener("hashchange", handleUrlMaybeChanged);
+    window.addEventListener("__auto_reloader_url_changed__", handleUrlMaybeChanged);
   }
 
   // ---------- Boot (with retries: SW may be starting up) ----------
@@ -317,8 +318,7 @@ if (window.__AUTO_RELOADER_ACTIVE__ &&
 
     const settings = await loadSettingsForTab(myTabId);
     if (retired) return;
-    applySettings(settings);
-    startWatchdog();
+    applySettings(settings); // starts watchdog itself when enabled
   })();
 
   // Live updates from popup/background

@@ -3,6 +3,12 @@ const $ = (id) => document.getElementById(id);
 const DEFAULT_SECONDS = 300; // default interval: 5 minutes
 const DEFAULT_JITTER = 5;    // default jitter: ±5%
 
+// parseInt(...) || fallback would treat a legit 0 as missing; use NaN check instead.
+const parseOr = (v, fallback) => {
+  const n = parseInt(v, 10);
+  return Number.isNaN(n) ? fallback : n;
+};
+
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
@@ -41,8 +47,8 @@ async function loadForActiveTab() {
 async function applyToActiveTab() {
   const tab = await getActiveTab();
 
-  const seconds = Math.max(1, parseInt($("seconds").value, 10) || DEFAULT_SECONDS);
-  const jitterPct = Math.max(0, Math.min(100, parseInt($("jitter").value, 10) || DEFAULT_JITTER));
+  const seconds = Math.max(1, parseOr($("seconds").value, DEFAULT_SECONDS));
+  const jitterPct = Math.max(0, Math.min(100, parseOr($("jitter").value, DEFAULT_JITTER)));
   const enabled = $("enabled").checked;
   const autoDisableOnDomainChange = $("autoDisableDomain").checked;
   const autoDisableOnPathChange = $("autoDisablePath").checked;
@@ -71,8 +77,10 @@ async function applyToActiveTab() {
 
   // Persist settings; background handles injecting content.js (works even if
   // this popup closes right away). Fire-and-forget for a snappy UI.
-  chrome.runtime.sendMessage({ type: "updateSettingsForTab", tabId: tab.id, settings }, () => {
+  chrome.runtime.sendMessage({ type: "updateSettingsForTab", tabId: tab.id, settings }, (resp) => {
     void chrome.runtime.lastError;
+    // Background rejects pages where content.js cannot run (chrome:// etc.).
+    if (enabled && resp && !resp.ok) showStatus("Cannot run on this page");
   });
 }
 

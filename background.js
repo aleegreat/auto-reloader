@@ -55,6 +55,11 @@ async function ensureContent(tabId) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
+      files: ["content-main.js"],
+      world: "MAIN"
+    });
+    await chrome.scripting.executeScript({
+      target: { tabId },
       files: ["content.js"]
     });
     return { ok: true };
@@ -85,7 +90,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
 
       if (msg?.type === "updateSettingsForTab") {
-        const { tabId, settings, silent } = msg;
+        const { settings, silent } = msg;
+        // Content-script messages: trust sender.tab.id over msg.tabId (defense
+        // in depth against cross-tab tampering). Popup has no sender.tab.
+        const tabId = sender.tab?.id ?? msg.tabId;
+
+        // Probe injection before persisting: don't store settings that can
+        // never take effect (chrome://, Web Store, etc.). The duplicate-
+        // injection guard makes this cheap when content is already present.
+        if (settings && !silent) {
+          const probe = await ensureContent(tabId);
+          if (!probe.ok) { sendResponse(probe); return; }
+        }
 
         await mutateSettings((map) => {
           if (settings) {
@@ -105,9 +121,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           } catch (e) {
             // Tab may not host content (chrome:// etc.) — ignore
           }
-          // Make sure content.js exists; done here (not in the popup) so it
-          // works even if the popup closes immediately after Apply.
-          if (settings) await ensureContent(tabId);
+          // content.js was already ensured by the probe above
         }
 
         // Clear badge when disabling entirely
@@ -119,8 +133,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
       // Content asks us to set the badge each second
       if (msg?.type === "setBadge") {
-        const { tabId, text, title } = msg;
-        await setBadge(tabId, text, title);
+        const { text, title } = msg;
+        await setBadge(sender.tab?.id ?? msg.tabId, text, title);
         sendResponse({ ok: true });
         return;
       }
