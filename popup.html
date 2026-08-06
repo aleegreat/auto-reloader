@@ -2,47 +2,260 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
     <title>Auto Reloader</title>
     <style>
-      body { font-family: system-ui, sans-serif; margin: 12px; min-width: 260px; }
-      .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-      label { flex: 1; }
-      input[type="number"] { width: 90px; }
-      .actions { display: flex; gap: 8px; margin-top: 12px; }
-      .status { margin-top: 8px; font-size: 12px; opacity: 0.8; }
-      small { opacity: 0.8; }
+      /* ---------- Catppuccin palette ---------- */
+      :root {
+        /* Latte (light) */
+        color-scheme: light;
+        --base: #eff1f5;
+        --mantle: #e6e9ef;
+        --crust: #dce0e8;
+        --surface0: #ccd0da;
+        --surface1: #bcc0cc;
+        --overlay: #8c8fa1;
+        --text: #4c4f69;
+        --subtext: #5c5f77; /* subtext1: darker for AA contrast of small text */
+        --mauve: #8839ef;
+        --mauve-hover: #7029cf;
+        --blue: #1e66f5;
+        --teal: #179299;
+        --green: #40a02b;
+        --lavender: #7287fd;
+        --ring: rgba(114, 135, 253, 0.45);
+        --knob: #ffffff;
+        --primary-text: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          /* Mocha (dark) */
+          color-scheme: dark;
+          --base: #1e1e2e;
+          --mantle: #181825;
+          --crust: #11111b;
+          --surface0: #313244;
+          --surface1: #45475a;
+          --overlay: #7f849c;
+          --text: #cdd6f4;
+          --subtext: #a6adc8;
+          --mauve: #cba6f7;
+          --mauve-hover: #ddc3f9;
+          --blue: #89b4fa;
+          --teal: #94e2d5;
+          --green: #a6e3a1;
+          --lavender: #b4befe;
+          --ring: rgba(180, 190, 254, 0.45);
+          --knob: #cdd6f4;
+          --primary-text: #1e1e2e;
+        }
+        header img { filter: invert(1); }
+      }
+
+      /* ---------- Base ---------- */
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--text);
+        background: var(--base);
+        width: 260px;
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Accent stripe: mauve -> blue -> teal */
+      .accent {
+        height: 3px;
+        background: linear-gradient(90deg, var(--mauve) 0%, var(--blue) 55%, var(--teal) 100%);
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 12px;
+        background: var(--mantle);
+        border-bottom: 1px solid var(--surface0);
+      }
+      .logo {
+        width: 26px; height: 26px; flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--surface0);
+        border: 1px solid var(--surface1);
+        border-radius: 8px;
+      }
+      .logo img { width: 16px; height: 16px; display: block; }
+      header h1 {
+        font-size: 14px; font-weight: 650; margin: 0;
+        letter-spacing: 0.3px;
+      }
+
+      .body { padding: 2px 12px 12px; }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 6px;
+        margin: 0 -6px;
+        transition: background 0.12s ease;
+      }
+      .row:hover { background: var(--mantle); border-radius: 8px; }
+      .row + .row { border-top: 1px solid var(--surface0); }
+      .row .label { display: flex; flex-direction: column; gap: 2px; }
+      .row .label .name { font-weight: 600; }
+      .row .label .hint { font-size: 11px; color: var(--subtext); }
+
+      input[type="number"] {
+        width: 72px;
+        padding: 5px 8px;
+        font: inherit;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        background: var(--mantle);
+        border: 1px solid var(--surface0);
+        border-radius: 8px;
+        outline: none;
+        text-align: right;
+        transition: border-color 0.12s ease, background 0.12s ease;
+      }
+      input[type="number"]:hover { border-color: var(--surface1); }
+      input[type="number"]:focus {
+        border-color: var(--mauve);
+        background: var(--base);
+      }
+      .suffix { display: flex; align-items: center; gap: 6px; color: var(--subtext); }
+
+      /* Toggle switch */
+      .switch { position: relative; display: inline-block; width: 40px; height: 23px; flex: 0 0 auto; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider {
+        position: absolute; cursor: pointer; inset: 0;
+        background: var(--surface1); border-radius: 999px;
+        transition: background 0.12s ease;
+      }
+      .slider::before {
+        content: ""; position: absolute; height: 17px; width: 17px;
+        left: 3px; top: 3px; background: var(--knob); border-radius: 50%;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+        transition: transform 0.12s ease;
+      }
+      .switch input:checked + .slider { background: var(--green); }
+      .switch input:checked + .slider::before {
+        transform: translateX(17px);
+        background: var(--base);
+      }
+      .switch input:focus-visible + .slider { box-shadow: 0 0 0 3px var(--ring); }
+      .switch:hover .slider::before { box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+
+      .actions { display: flex; gap: 8px; margin-top: 10px; }
+      button {
+        flex: 1;
+        font: inherit;
+        font-weight: 600;
+        padding: 7px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 1px solid var(--surface1);
+        transition: background 0.12s ease, color 0.12s ease, transform 0.05s ease;
+      }
+      button:active { transform: translateY(1px); }
+      button:focus-visible { outline: 2px solid var(--lavender); outline-offset: 2px; }
+      .primary {
+        background: var(--mauve); color: var(--primary-text);
+        border-color: var(--mauve);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+      }
+      .primary:hover { background: var(--mauve-hover); border-color: var(--mauve-hover); }
+      .ghost { background: transparent; color: var(--text); }
+      .ghost:hover { background: var(--mantle); }
+
+      .status {
+        margin-top: 8px;
+        min-height: 14px;
+        font-size: 11px;
+        color: var(--subtext);
+        text-align: center;
+        transition: opacity 0.15s ease;
+      }
+      .status:empty { opacity: 0; }
+      .status:not(:empty) { animation: fade-in 0.18s ease; }
+      @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
     </style>
   </head>
   <body>
-    <h3>Auto Reloader</h3>
+    <div class="accent"></div>
+    <header>
+      <span class="logo"><img src="icons/white/icon32.png" alt="" /></span>
+      <h1>Auto Reloader</h1>
+    </header>
 
-    <div class="row">
-      <label for="seconds">Interval (seconds)</label>
-      <input id="seconds" type="number" min="1" step="1" value="60" />
+    <div class="body">
+      <div class="row">
+        <div class="label">
+          <span class="name">Interval</span>
+          <span class="hint">Reload every X seconds</span>
+        </div>
+        <div class="suffix">
+          <input id="seconds" type="number" min="1" step="1" value="300" />
+          <span>s</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">
+          <span class="name">Jitter</span>
+          <span class="hint">Randomize timing</span>
+        </div>
+        <div class="suffix">
+          <span>&plusmn;</span>
+          <input id="jitter" type="number" min="0" max="100" step="1" value="5" />
+          <span>%</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">
+          <span class="name">Enabled</span>
+          <span class="hint">Apply to this tab</span>
+        </div>
+        <label class="switch">
+          <input id="enabled" type="checkbox" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="label">
+          <span class="name">Auto-disable on Domain/IP change</span>
+          <span class="hint">Stop when the host changes</span>
+        </div>
+        <label class="switch">
+          <input id="autoDisableDomain" type="checkbox" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="label">
+          <span class="name">Auto-disable on Path change</span>
+          <span class="hint">Stop when the path changes</span>
+        </div>
+        <label class="switch">
+          <input id="autoDisablePath" type="checkbox" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="apply" class="primary">Apply</button>
+        <button id="disable" class="ghost">Disable</button>
+      </div>
+
+      <div class="status" id="status"></div>
     </div>
-
-    <div class="row">
-      <label for="jitter">Jitter (± %)</label>
-      <input id="jitter" type="number" min="0" max="100" step="1" value="0" />
-    </div>
-
-    <div class="row">
-      <label for="enabled">Enabled for this tab</label>
-      <input id="enabled" type="checkbox" />
-    </div>
-
-    <div class="row">
-      <label for="autoDisable">Auto-disable on URL change</label>
-      <input id="autoDisable" type="checkbox" checked />
-    </div>
-    <small>When the URL changes, reloading will turn off but your settings stay saved.</small>
-
-    <div class="actions">
-      <button id="apply">Apply</button>
-      <button id="disable">Disable</button>
-    </div>
-
-    <div class="status" id="status"></div>
 
     <script src="popup.js"></script>
   </body>

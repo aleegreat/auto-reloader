@@ -1,12 +1,13 @@
 # Auto Reloader (Chrome Extension)
 
-Reload the current page every **X** seconds (default **60**) with an optional **± jitter %** (default **0%**).  
+Reload the current page every **X** seconds (default **300**) with an optional **± jitter %** (default **5%**).  
 Nice-to-have extras:
 
 - **Per-tab enable/disable** (persists while the tab lives, across reloads)
-- **Countdown badge** on the toolbar icon in `XhYmZs` format
-- **Auto-disable on URL change** (default **ON**) — keeps your settings but turns off after navigation
-- **Pause while typing** (default **ON**) — freezes the countdown when a text field is focused
+- **Countdown badge** on the toolbar icon
+- **Auto-disable on Domain/IP change** (default **ON**) — stops reloading when the page navigates to a different host
+- **Auto-disable on Path change** (default **OFF**) — also stops when the path changes on the same host
+- **Pause on interaction** — any key press or mouse click pauses the countdown; it resumes after **1 minute** of inactivity
 - Optional **random jitter**: reload at a random time in the range `X*(1±P%)`
 
 Manifest V3, no background polling: the content script keeps time so it’s reliable even when the MV3 service worker sleeps.
@@ -41,12 +42,12 @@ Manifest V3, no background polling: the content script keeps time so it’s reli
 1. Open the page you want to auto-reload.
 2. Click the **Auto Reloader** icon.
 3. Set:
-   - **Interval (seconds)** — default **60**
-   - **Jitter (±%)** — default **0**
-   - **Enabled for this tab** — check to start
-   - **Auto-disable on URL change** — default **ON**
-   - **Pause while typing** — default **ON**
-4. Click **Apply** (or just toggle **Enabled**).
+   - **Interval (seconds)** — default **300**
+   - **Jitter (±%)** — default **5**
+   - **Enabled for this tab** — on by default
+   - **Auto-disable on Domain/IP change** — default **ON**
+   - **Auto-disable on Path change** — default **OFF**
+4. Click **Apply** — changes only take effect when you click Apply.
 
 A small badge will count down (e.g., `59s`, `2m5s`, `1h0m7s`). When it hits zero, the page reloads and the countdown restarts.
 
@@ -59,8 +60,8 @@ A small badge will count down (e.g., `59s`, `2m5s`, `1h0m7s`). When it hits zero
 - **“Load unpacked” is greyed out** → Toggle **Developer mode** on in `chrome://extensions/`.
 - **Badge shows but the number doesn’t decrease** → Click **Apply** again. If you previously had the extension open, the content script might not have been injected yet for that tab.
 - **It won’t run on a given page** → Some pages (e.g., `chrome://*`, Web Store, certain PDFs) block content scripts by design.
-- **It stops after navigating** → That’s **Auto-disable on URL change** doing its job. Uncheck that option if you want it to continue across navigations.
-- **Reload happens while typing** → Keep **Pause while typing** enabled (default ON). The countdown freezes while a text field has focus.
+- **It stops after navigating** → That's **Auto-disable on Domain/IP change** (and optionally **Path change**) doing its job. Turn those options off if you want it to continue across navigations.
+- **Reload happens while I'm using the page** → That's expected: interacting with the page pauses the countdown, and it resumes automatically after 1 minute of inactivity.
 
 ---
 

@@ -1,5 +1,8 @@
 const $ = (id) => document.getElementById(id);
 
+const DEFAULT_SECONDS = 300; // default interval: 5 minutes
+const DEFAULT_JITTER = 5;    // default jitter: ±5%
+
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
@@ -14,71 +17,79 @@ async function loadForActiveTab() {
   const tab = await getActiveTab();
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "getSettingsForTab", tabId: tab.id }, (resp) => {
+      void chrome.runtime.lastError; // swallow messaging errors
       const s = resp?.settings || null;
 
-      $("seconds").value = s?.seconds ?? 60;
-      $("jitter").value = s?.jitterPct ?? 0;
-      $("enabled").checked = !!(s?.enabled);
-      $("autoDisable").checked = (s?.autoDisableOnUrlChange !== undefined)
-        ? !!s.autoDisableOnUrlChange
-        : true; // default ON
+      $("seconds").value = s?.seconds ?? DEFAULT_SECONDS;
+      $("jitter").value = s?.jitterPct ?? DEFAULT_JITTER;
+      $("enabled").checked = s ? !!s.enabled : true; // default ON; Apply activates
+
+      // Migrate legacy single toggle (autoDisableOnUrlChange) if present
+      const legacy = s?.autoDisableOnUrlChange;
+      $("autoDisableDomain").checked = (s?.autoDisableOnDomainChange !== undefined)
+        ? !!s.autoDisableOnDomainChange
+        : (legacy !== undefined ? !!legacy : true); // default ON
+      $("autoDisablePath").checked = (s?.autoDisableOnPathChange !== undefined)
+        ? !!s.autoDisableOnPathChange
+        : (legacy !== undefined ? !!legacy : false); // default OFF
 
       resolve({ tab, settings: s });
     });
   });
 }
 
-function ensureContent(tabId) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: "ensureContent", tabId }, () => resolve());
-  });
-}
-
 async function applyToActiveTab() {
   const tab = await getActiveTab();
 
-  // Make sure content.js is present even if you just reloaded the extension.
-  await ensureContent(tab.id);
-
-  const seconds = Math.max(1, parseInt($("seconds").value, 10) || 60);
-  const jitterPct = Math.max(0, Math.min(100, parseInt($("jitter").value, 10) || 0));
+  const seconds = Math.max(1, parseInt($("seconds").value, 10) || DEFAULT_SECONDS);
+  const jitterPct = Math.max(0, Math.min(100, parseInt($("jitter").value, 10) || DEFAULT_JITTER));
   const enabled = $("enabled").checked;
-  const autoDisableOnUrlChange = $("autoDisable").checked;
+  const autoDisableOnDomainChange = $("autoDisableDomain").checked;
+  const autoDisableOnPathChange = $("autoDisablePath").checked;
+
+  // Instant UI feedback — don't wait for background round-trips.
+  if (enabled) {
+    const flags = [];
+    if (autoDisableOnDomainChange) flags.push("domain/IP");
+    if (autoDisableOnPathChange) flags.push("path");
+    const autoNote = flags.length ? ` • auto-disable on ${flags.join(" & ")} change` : "";
+    showStatus(`Enabled: every ${seconds}s (±${jitterPct}%)${autoNote}`);
+  } else {
+    showStatus("Disabled for this tab");
+  }
 
   const settings = enabled
     ? {
         enabled: true,
         seconds,
         jitterPct,
-        autoDisableOnUrlChange,
+        autoDisableOnDomainChange,
+        autoDisableOnPathChange,
         lastUrl: tab.url // seed for comparison immediately
       }
     : null; // manual disable clears this tab's entry
 
+  // Persist settings; background handles injecting content.js (works even if
+  // this popup closes right away). Fire-and-forget for a snappy UI.
   chrome.runtime.sendMessage({ type: "updateSettingsForTab", tabId: tab.id, settings }, () => {
-    if (enabled) {
-      showStatus(`Enabled: every ${seconds}s (±${jitterPct}%)${autoDisableOnUrlChange ? " • auto-disable on URL change" : ""}`);
-    } else {
-      $("enabled").checked = false;
-      showStatus("Disabled for this tab");
-    }
+    void chrome.runtime.lastError;
   });
 }
 
 async function disableForActiveTab() {
   const tab = await getActiveTab();
+  $("enabled").checked = false;
+  showStatus("Disabled for this tab");
   chrome.runtime.sendMessage({ type: "updateSettingsForTab", tabId: tab.id, settings: null }, () => {
-    $("enabled").checked = false;
-    showStatus("Disabled for this tab");
+    void chrome.runtime.lastError;
   });
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  await loadForActiveTab();
+// Script is at the end of <body>: DOM is ready, bind immediately (no waiting
+// for DOMContentLoaded), so the popup feels instant.
+(async () => {
   $("apply").addEventListener("click", applyToActiveTab);
   $("disable").addEventListener("click", disableForActiveTab);
-  $("enabled").addEventListener("change", () => applyToActiveTab());
-  $("autoDisable").addEventListener("change", () => {
-    if ($("enabled").checked) applyToActiveTab();
-  });
-});
+  // Toggles/inputs only change local state; settings take effect on "Apply".
+  loadForActiveTab();
+})();
