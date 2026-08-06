@@ -13,6 +13,12 @@ Nice-to-have extras:
 Manifest V3, no background polling: the content script keeps time so it’s reliable even when the MV3 service worker sleeps.
 
 ---
+# Previews
+
+![Light](Previews/Light.png)
+
+![Dark](Previews/Dark.png)
+---
 
 ## Quick install (from GitHub ZIP)
 
