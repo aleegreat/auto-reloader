@@ -14,10 +14,9 @@ Manifest V3, no background polling: the content script keeps time so it’s reli
 
 ---
 # Previews
+Light： ![Light](Previews/Light.png)
 
-![Light](Previews/Light.png)
-
-![Dark](Previews/Dark.png)
+Dark： ![Dark](Previews/Dark.png)
 ---
 
 ## Quick install (from GitHub ZIP)
