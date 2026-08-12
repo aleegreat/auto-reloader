@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "Auto Reloader",
+    "description": "The name of the extension."
+  },
+  "extensionDescription": {
+    "message": "Reload the current page every X seconds with optional ± random jitter.",
+    "description": "The description of the extension."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "Auto Reloader",
+    "description": "扩展名称。"
+  },
+  "extensionDescription": {
+    "message": "每隔X秒自动刷新当前页面，支持±随机抖动。",
+    "description": "扩展描述。"
+  }
+}
